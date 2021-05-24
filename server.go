@@ -48,14 +48,15 @@ func parseIdentifier(path, endpoint string) (string, error) {
 // domain scenarios easier to support via a standardized service.
 type Server struct {
 	Config        ServiceProviderConfig
+	Prefix        string
 	ResourceTypes []ResourceType
 }
 
 // ServeHTTP dispatches the request to the handler whose pattern most closely matches the request URL.
 func (s Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/scim+json")
-
-	path := strings.TrimPrefix(r.URL.Path, "/v2")
+	
+	path := strings.TrimPrefix(r.URL.Path, s.Prefix)
 
 	switch {
 	case path == "/Me":
