@@ -55,7 +55,7 @@ type Server struct {
 // ServeHTTP dispatches the request to the handler whose pattern most closely matches the request URL.
 func (s Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/scim+json")
-	
+
 	path := strings.TrimPrefix(r.URL.Path, s.Prefix)
 
 	switch {
@@ -123,14 +123,18 @@ func (s Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 // getSchema extracts the schemas from the resources types defined in the server with given id.
-func (s Server) getSchema(id string) schema.Schema {
+func (s Server) getSchema(id string, r *http.Request) schema.Schema {
 	for _, resourceType := range s.ResourceTypes {
 		if resourceType.Schema.ID == id {
 			return resourceType.Schema
 		}
 		for _, extension := range resourceType.SchemaExtensions {
 			if extension.Schema.ID == id {
-				return extension.Schema
+				if extension.LoadDynamically {
+					return extension.SchemaLoader.LoadSchema(r)
+				} else {
+					return extension.Schema
+				}
 			}
 		}
 	}
@@ -138,7 +142,7 @@ func (s Server) getSchema(id string) schema.Schema {
 }
 
 // getSchemas extracts all the schemas from the resources types defined in the server. Duplicate IDs will be ignored.
-func (s Server) getSchemas() []schema.Schema {
+func (s Server) getSchemas(r *http.Request) []schema.Schema {
 	ids := make([]string, 0)
 	schemas := make([]schema.Schema, 0)
 	for _, resourceType := range s.ResourceTypes {
@@ -148,7 +152,11 @@ func (s Server) getSchemas() []schema.Schema {
 		ids = append(ids, resourceType.Schema.ID)
 		for _, extension := range resourceType.SchemaExtensions {
 			if !contains(ids, extension.Schema.ID) {
-				schemas = append(schemas, extension.Schema)
+				if extension.LoadDynamically {
+					schemas = append(schemas, extension.SchemaLoader.LoadSchema(r))
+				} else {
+					schemas = append(schemas, extension.Schema)
+				}
 			}
 			ids = append(ids, extension.Schema.ID)
 		}

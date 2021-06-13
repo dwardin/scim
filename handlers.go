@@ -109,7 +109,7 @@ func (s Server) resourcePatchHandler(w http.ResponseWriter, r *http.Request, id 
 func (s Server) resourcePostHandler(w http.ResponseWriter, r *http.Request, resourceType ResourceType) {
 	data, _ := ioutil.ReadAll(r.Body)
 
-	attributes, scimErr := resourceType.validate(data, http.MethodPost)
+	attributes, scimErr := resourceType.validate(data, http.MethodPost, r)
 	if scimErr != nil {
 		errorHandler(w, r, scimErr)
 		return
@@ -146,7 +146,7 @@ func (s Server) resourcePostHandler(w http.ResponseWriter, r *http.Request, reso
 func (s Server) resourcePutHandler(w http.ResponseWriter, r *http.Request, id string, resourceType ResourceType) {
 	data, _ := ioutil.ReadAll(r.Body)
 
-	attributes, scimErr := resourceType.validate(data, http.MethodPut)
+	attributes, scimErr := resourceType.validate(data, http.MethodPut, r)
 	if scimErr != nil {
 		errorHandler(w, r, scimErr)
 		return
@@ -283,7 +283,7 @@ func (s Server) resourcesGetHandler(w http.ResponseWriter, r *http.Request, reso
 // schemaHandler receives an HTTP GET to retrieve individual schema definitions which can be returned by appending the
 // schema URI to the /Schemas endpoint. For example: "/Schemas/urn:ietf:params:scim:schemas:core:2.0:User".
 func (s Server) schemaHandler(w http.ResponseWriter, r *http.Request, id string) {
-	getSchema := s.getSchema(id)
+	getSchema := s.getSchema(id, r)
 	if getSchema.ID != id {
 		scimErr := errors.ScimErrorResourceNotFound(id)
 		errorHandler(w, r, &scimErr)
@@ -314,7 +314,7 @@ func (s Server) schemasHandler(w http.ResponseWriter, r *http.Request) {
 
 	var (
 		validator  = f.NewFilterValidator(params.Filter, schema.Definition())
-		start, end = clamp(params.StartIndex-1, params.Count, len(s.getSchemas()))
+		start, end = clamp(params.StartIndex-1, params.Count, len(s.getSchemas(r)))
 		resources  []interface{}
 	)
 	if params.Filter != nil {
@@ -323,7 +323,7 @@ func (s Server) schemasHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	for _, v := range s.getSchemas()[start:end] {
+	for _, v := range s.getSchemas(r)[start:end] {
 		resource := v.ToMap()
 		if params.Filter != nil {
 			if err := validator.PassesFilter(resource); err != nil {
@@ -334,7 +334,7 @@ func (s Server) schemasHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	raw, err := json.Marshal(listResponse{
-		TotalResults: len(s.getSchemas()),
+		TotalResults: len(s.getSchemas(r)),
 		ItemsPerPage: params.Count,
 		StartIndex:   params.StartIndex,
 		Resources:    resources,

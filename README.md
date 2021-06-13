@@ -104,6 +104,23 @@ server := Server{
 }
 ```
 
+## Dynamic Schema Loading Creation
+```go
+resourceTypes := []ResourceType{
+    {
+        ID:          optional.NewString("User"),
+        Name:        "User",
+        Endpoint:    "/Users",
+        Description: optional.NewString("User Account"),
+        Schema:      schema,
+        SchemaExtensions: []SchemaExtension{
+            {Schema: extension, LoadDynamically: true, SchemaLoader: schemaLoader}, // when registering an extension, you can define it as dynamically generated/loaded so that you can create it on the fly based on the request context (eg. when using this for a SaaS application)
+        },
+        Handler:     userResourceHandler,
+    },
+},
+```
+
 ## Addition Checks/Tests
 Not everything can be checked by the SCIM server itself.
 Below are some things listed that we expect that the implementation covers.

@@ -968,6 +968,7 @@ func newTestServer() Server {
 	userSchemaExtension := getUserExtensionSchema()
 	return Server{
 		Config: ServiceProviderConfig{},
+		Prefix: "/v2",
 		ResourceTypes: []ResourceType{
 			{
 				ID:          optional.NewString("User"),

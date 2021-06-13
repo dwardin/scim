@@ -88,7 +88,7 @@ func (t ResourceType) schemaWithCommon() schema.Schema {
 	return s
 }
 
-func (t ResourceType) validate(raw []byte, method string) (ResourceAttributes, *errors.ScimError) {
+func (t ResourceType) validate(raw []byte, method string, r *http.Request) (ResourceAttributes, *errors.ScimError) {
 	var m map[string]interface{}
 	if err := unmarshal(raw, &m); err != nil {
 		return ResourceAttributes{}, &errors.ScimErrorInvalidSyntax
@@ -108,7 +108,14 @@ func (t ResourceType) validate(raw []byte, method string) (ResourceAttributes, *
 			continue
 		}
 
-		extensionAttributes, scimErr := extension.Schema.Validate(extensionField)
+		var extensionAttributes map[string]interface{}
+		var scimErr *errors.ScimError
+
+		if extension.LoadDynamically {
+			extensionAttributes, scimErr = extension.SchemaLoader.LoadSchema(r).Validate(extensionField)
+		} else {
+			extensionAttributes, scimErr = extension.Schema.Validate(extensionField)
+		}
 		if scimErr != nil {
 			return ResourceAttributes{}, scimErr
 		}
@@ -119,7 +126,7 @@ func (t ResourceType) validate(raw []byte, method string) (ResourceAttributes, *
 	return attributes, nil
 }
 
-func (t ResourceType) validateOperationValue(op PatchOperation) *errors.ScimError {
+func (t ResourceType) validateOperationValue(op PatchOperation, r *http.Request) *errors.ScimError {
 	var (
 		path             = op.Path
 		attributeName    = path.AttributePath.AttributeName
@@ -151,7 +158,11 @@ func (t ResourceType) validateOperationValue(op PatchOperation) *errors.ScimErro
 		if id := path.AttributePath.URI(); id != "" {
 			for _, ext := range t.SchemaExtensions {
 				if strings.EqualFold(id, ext.Schema.ID) {
-					return ext.Schema.ValidatePatchOperation(op.Op, mapValue, true)
+					if ext.LoadDynamically {
+						return ext.SchemaLoader.LoadSchema(r).ValidatePatchOperation(op.Op, mapValue, true)
+					} else {
+						return ext.Schema.ValidatePatchOperation(op.Op, mapValue, true)
+					}
 				}
 			}
 		}
@@ -218,7 +229,7 @@ func (t ResourceType) validatePatch(r *http.Request) (PatchRequest, *errors.Scim
 			p := validator.Path()
 			op.Path = &p
 
-			if err := t.validateOperationValue(op); err != nil {
+			if err := t.validateOperationValue(op, r); err != nil {
 				return PatchRequest{}, err
 			}
 		}
@@ -237,4 +248,13 @@ type SchemaExtension struct {
 	// declared as required in this schema extension. If false, a resource of this type MAY omit this schema
 	// extension.
 	Required bool
+	// This was added to support schemas that get evaluated/constructed on the fly based on DB configs in a SaaS system
+	LoadDynamically bool
+	// Function that implements the loading mechanism
+	SchemaLoader SchemaLoader
+}
+
+type SchemaLoader interface {
+	// loads the schema in an arbitrary way - request is included for context
+	LoadSchema(r *http.Request) schema.Schema
 }
