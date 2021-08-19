@@ -63,10 +63,14 @@ func (t ResourceType) getRawSchemaExtensions() []map[string]interface{} {
 	return schemas
 }
 
-func (t ResourceType) getSchemaExtensions() []schema.Schema {
+func (t ResourceType) getSchemaExtensions(r *http.Request) []schema.Schema {
 	var extensions []schema.Schema
 	for _, e := range t.SchemaExtensions {
-		extensions = append(extensions, e.Schema)
+		if e.LoadDynamically {
+			extensions = append(extensions, e.SchemaLoader.LoadSchema(r))
+		} else {
+			extensions = append(extensions, e.Schema)
+		}
 	}
 	return extensions
 }
@@ -200,7 +204,7 @@ func (t ResourceType) validatePatch(r *http.Request) (PatchRequest, *errors.Scim
 		Schemas: req.Schemas,
 	}
 	for _, v := range req.Operations {
-		validator, err := filter.NewPathValidator(v.Path, t.schemaWithCommon(), t.getSchemaExtensions()...)
+		validator, err := filter.NewPathValidator(v.Path, t.schemaWithCommon(), t.getSchemaExtensions(r)...)
 		switch v.Op = strings.ToLower(v.Op); v.Op {
 		case PatchOperationAdd, PatchOperationReplace:
 			if v.Value == nil {
