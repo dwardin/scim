@@ -3,6 +3,7 @@ package scim
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"strings"
@@ -107,7 +108,12 @@ func (t ResourceType) validate(raw []byte, method string, r *http.Request) (Reso
 		extensionField := m[extension.Schema.ID]
 		if extensionField == nil {
 			if extension.Required {
-				return ResourceAttributes{}, &errors.ScimErrorInvalidValue
+				err := errors.ScimError{
+					ScimType: errors.ScimErrorInvalidValue.ScimType,
+					Detail:   errors.ScimErrorInvalidValue.Detail + " Extension name: " + extension.Schema.Name.Value(),
+					Status:   errors.ScimErrorInvalidValue.Status,
+				}
+				return ResourceAttributes{}, &err
 			}
 			continue
 		}
@@ -179,7 +185,12 @@ func (t ResourceType) validateOperationValue(op PatchOperation, r *http.Request)
 func (t ResourceType) validatePatch(r *http.Request) (PatchRequest, *errors.ScimError) {
 	data, err := ioutil.ReadAll(r.Body)
 	if err != nil {
-		return PatchRequest{}, &errors.ScimErrorInvalidSyntax
+		err := errors.ScimError{
+			ScimType: errors.ScimErrorInvalidSyntax.ScimType,
+			Detail:   errors.ScimErrorInvalidSyntax.Detail + " Failed to read request body. ",
+			Status:   errors.ScimErrorInvalidSyntax.Status,
+		}
+		return PatchRequest{}, &err
 	}
 
 	var req struct {
@@ -190,35 +201,65 @@ func (t ResourceType) validatePatch(r *http.Request) (PatchRequest, *errors.Scim
 		}
 	}
 	if err := unmarshal(data, &req); err != nil {
-		return PatchRequest{}, &errors.ScimErrorInvalidSyntax
+		err := errors.ScimError{
+			ScimType: errors.ScimErrorInvalidSyntax.ScimType,
+			Detail:   errors.ScimErrorInvalidSyntax.Detail + " Failed to parse request body.",
+			Status:   errors.ScimErrorInvalidSyntax.Status,
+		}
+		return PatchRequest{}, &err
 	}
 
 	// The body of an HTTP PATCH request MUST contain the attribute "Operations",
 	// whose value is an array of one or more PATCH operations.
 	if len(req.Operations) < 1 {
-		return PatchRequest{}, &errors.ScimErrorInvalidValue
+		err := errors.ScimError{
+			ScimType: errors.ScimErrorInvalidValue.ScimType,
+			Detail:   errors.ScimErrorInvalidValue.Detail + " Zero operations found in request body.",
+			Status:   errors.ScimErrorInvalidValue.Status,
+		}
+		return PatchRequest{}, &err
 	}
 
 	// Evaluation continues until all operations are successfully applied or until an error condition is encountered.
 	patchReq := PatchRequest{
 		Schemas: req.Schemas,
 	}
-	for _, v := range req.Operations {
+	for index, v := range req.Operations {
 		validator, err := filter.NewPathValidator(v.Path, t.schemaWithCommon(), t.getSchemaExtensions(r)...)
 		switch v.Op = strings.ToLower(v.Op); v.Op {
 		case PatchOperationAdd, PatchOperationReplace:
 			if v.Value == nil {
-				return PatchRequest{}, &errors.ScimErrorInvalidFilter
+				err := errors.ScimError{
+					ScimType: errors.ScimErrorInvalidFilter.ScimType,
+					Detail:   errors.ScimErrorInvalidFilter.Detail + " Operation number: " + fmt.Sprint(index+1) + ", has a null value.",
+					Status:   errors.ScimErrorInvalidFilter.Status,
+				}
+				return PatchRequest{}, &err
 			}
 			if v.Path != "" && err != nil {
-				return PatchRequest{}, &errors.ScimErrorInvalidPath
+				err2 := errors.ScimError{
+					ScimType: errors.ScimErrorInvalidPath.ScimType,
+					Detail:   errors.ScimErrorInvalidPath.Detail + " Operation number: " + fmt.Sprint(index+1) + ", has failed validation. " + err.Error(),
+					Status:   errors.ScimErrorInvalidPath.Status,
+				}
+				return PatchRequest{}, &err2
 			}
 		case PatchOperationRemove:
 			if err != nil {
-				return PatchRequest{}, &errors.ScimErrorInvalidPath
+				err2 := errors.ScimError{
+					ScimType: errors.ScimErrorInvalidPath.ScimType,
+					Detail:   errors.ScimErrorInvalidPath.Detail + " Operation number: " + fmt.Sprint(index+1) + ", has failed validation. " + err.Error(),
+					Status:   errors.ScimErrorInvalidPath.Status,
+				}
+				return PatchRequest{}, &err2
 			}
 		default:
-			return PatchRequest{}, &errors.ScimErrorInvalidFilter
+			err := errors.ScimError{
+				ScimType: errors.ScimErrorInvalidFilter.ScimType,
+				Detail:   errors.ScimErrorInvalidFilter.Detail + " Operation number: " + fmt.Sprint(index+1) + ", has an unrecognized operation type.",
+				Status:   errors.ScimErrorInvalidFilter.Status,
+			}
+			return PatchRequest{}, &err
 		}
 		op := PatchOperation{
 			Op:    strings.ToLower(v.Op),
@@ -228,13 +269,23 @@ func (t ResourceType) validatePatch(r *http.Request) (PatchRequest, *errors.Scim
 		// If err is nil, then it means that there is a valid path.
 		if err == nil {
 			if err := validator.Validate(); err != nil {
-				return PatchRequest{}, &errors.ScimErrorInvalidPath
+				err2 := errors.ScimError{
+					ScimType: errors.ScimErrorInvalidPath.ScimType,
+					Detail:   errors.ScimErrorInvalidPath.Detail + " Operation number: " + fmt.Sprint(index+1) + ", has failed validation. " + err.Error(),
+					Status:   errors.ScimErrorInvalidPath.Status,
+				}
+				return PatchRequest{}, &err2
 			}
 			p := validator.Path()
 			op.Path = &p
 
 			if err := t.validateOperationValue(op, r); err != nil {
-				return PatchRequest{}, err
+				err2 := errors.ScimError{
+					ScimType: errors.ScimErrorInvalidValue.ScimType,
+					Detail:   errors.ScimErrorInvalidValue.Detail + " Operation number: " + fmt.Sprint(index+1) + ", has failed validation. " + err.Error(),
+					Status:   errors.ScimErrorInvalidValue.Status,
+				}
+				return PatchRequest{}, &err2
 			}
 		}
 		patchReq.Operations = append(patchReq.Operations, op)

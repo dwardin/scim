@@ -95,7 +95,12 @@ func (s Schema) ValidatePatchOperation(operation string, operationValue map[stri
 		// Attribute does not exist in the schema, thus it is an invalid request.
 		// Immutable attrs can only be added and Readonly attrs cannot be patched
 		if attr == nil || cannotBePatched(operation, *attr) {
-			return &errors.ScimErrorInvalidValue
+			scimErr = &errors.ScimError{
+				ScimType: errors.ScimErrorInvalidValue.ScimType,
+				Detail:   errors.ScimErrorInvalidValue.Detail + " Attribute " + attr.name + " does not exist in the schema, or is immutable in the schema, and therefore cannot be patched.",
+				Status:   errors.ScimErrorInvalidValue.Status,
+			}
+			return scimErr
 		}
 
 		// "remove" operations simply have to exist

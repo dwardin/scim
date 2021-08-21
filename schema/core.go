@@ -398,7 +398,12 @@ func (a CoreAttribute) validateSingular(attribute interface{}) (interface{}, *er
 		case float64:
 			return n, nil
 		default:
-			return nil, &errors.ScimErrorInvalidValue
+			err := errors.ScimError{
+				ScimType: errors.ScimErrorInvalidValue.ScimType,
+				Detail:   errors.ScimErrorInvalidValue.Detail + " Decimal attribute value failed submitted with wrong type. Attribute name: " + a.name,
+				Status:   errors.ScimErrorInvalidValue.Status,
+			}
+			return nil, &err
 		}
 	case attributeDataTypeInteger:
 		switch n := attribute.(type) {
