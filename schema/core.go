@@ -322,12 +322,42 @@ func (a CoreAttribute) validateSingular(attribute interface{}) (interface{}, *er
 	case attributeDataTypeComplex:
 		complex, ok := attribute.(map[string]interface{})
 		if !ok {
-			err := errors.ScimError{
-				ScimType: errors.ScimErrorInvalidValue.ScimType,
-				Detail:   errors.ScimErrorInvalidValue.Detail + " Complex attribute does not have the right structure. Attribute name: " + a.name,
-				Status:   errors.ScimErrorInvalidValue.Status,
+			// manager must receive special treatment on behalf of Azure AD who submit the following style requests (non-compliant)
+			/*
+				{
+					"schemas": [
+						"urn:ietf:params:scim:api:messages:2.0:PatchOp"
+					],
+					"Operations": [
+						{
+							"op": "Add",
+							"path": "urn:ietf:params:scim:schemas:extension:enterprise:2.0:User:manager", // <- this should end with manager.value
+							"value": "274" // or this should be an object like this: "value": { "value": 274 }
+						}
+					]
+				}
+			*/
+			if strings.EqualFold(strings.ToLower(a.name), "manager") {
+				if manager, ok := attribute.(string); ok {
+					return manager, nil // return the manager string
+				} else {
+					err := errors.ScimError{
+						ScimType: errors.ScimErrorInvalidValue.ScimType,
+						Detail:   errors.ScimErrorInvalidValue.Detail + " Complex attribute does not have the right structure. Attribute name: " + a.name,
+						Status:   errors.ScimErrorInvalidValue.Status,
+					}
+
+					return nil, &err
+				}
+			} else {
+				err := errors.ScimError{
+					ScimType: errors.ScimErrorInvalidValue.ScimType,
+					Detail:   errors.ScimErrorInvalidValue.Detail + " Complex attribute does not have the right structure. Attribute name: " + a.name,
+					Status:   errors.ScimErrorInvalidValue.Status,
+				}
+
+				return nil, &err
 			}
-			return nil, &err
 		}
 
 		attributes := make(map[string]interface{})
