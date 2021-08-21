@@ -79,6 +79,11 @@ func (s Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	case path == "/ServiceProviderConfig":
 		s.serviceProviderConfigHandler(w, r)
 		return
+	case path == "/":
+		// For Azure AD testing connectivity - it expects a 200 at the root
+		w.WriteHeader(200)
+		w.Write([]byte("OK"))
+		return
 	}
 
 	for _, resourceType := range s.ResourceTypes {
