@@ -110,7 +110,7 @@ func (t ResourceType) validate(raw []byte, method string, r *http.Request) (Reso
 			if extension.Required {
 				err := errors.ScimError{
 					ScimType: errors.ScimErrorInvalidValue.ScimType,
-					Detail:   errors.ScimErrorInvalidValue.Detail + " Extension name: " + extension.Schema.Name.Value(),
+					Detail:   errors.ScimErrorInvalidValue.Detail + " Missing extension name: " + extension.Schema.Name.Value() + ", Extension ID: " + extension.Schema.ID,
 					Status:   errors.ScimErrorInvalidValue.Status,
 				}
 				return ResourceAttributes{}, &err
