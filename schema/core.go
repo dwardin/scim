@@ -202,7 +202,12 @@ func (a CoreAttribute) validate(attribute interface{}) (interface{}, *errors.Sci
 		}
 
 		// the attribute is not present but required.
-		return nil, &errors.ScimErrorInvalidValue
+		err := errors.ScimError{
+			ScimType: errors.ScimErrorInvalidValue.ScimType,
+			Detail:   errors.ScimErrorInvalidValue.Detail + " Attribute name: " + a.name,
+			Status:   errors.ScimErrorInvalidValue.Status,
+		}
+		return nil, &err
 	}
 
 	// whether the value of the attribute can be (re)defined
@@ -219,7 +224,12 @@ func (a CoreAttribute) validate(attribute interface{}) (interface{}, *errors.Sci
 	case map[string]interface{}:
 		// return false if the multivalued attribute is empty.
 		if a.required && len(arr) == 0 {
-			return nil, &errors.ScimErrorInvalidValue
+			err := errors.ScimError{
+				ScimType: errors.ScimErrorInvalidValue.ScimType,
+				Detail:   errors.ScimErrorInvalidValue.Detail + " Multivalued attribute was empty. Attribute name: " + a.name,
+				Status:   errors.ScimErrorInvalidValue.Status,
+			}
+			return nil, &err
 		}
 
 		validMap := make(map[string]interface{}, len(arr))
@@ -240,7 +250,12 @@ func (a CoreAttribute) validate(attribute interface{}) (interface{}, *errors.Sci
 	case []interface{}:
 		// return false if the multivalued attribute is empty.
 		if a.required && len(arr) == 0 {
-			return nil, &errors.ScimErrorInvalidValue
+			err := errors.ScimError{
+				ScimType: errors.ScimErrorInvalidValue.ScimType,
+				Detail:   errors.ScimErrorInvalidValue.Detail + " Multivalued attribute was empty. Attribute name: " + a.name,
+				Status:   errors.ScimErrorInvalidValue.Status,
+			}
+			return nil, &err
 		}
 
 		attributes := make([]interface{}, len(arr))
@@ -255,7 +270,12 @@ func (a CoreAttribute) validate(attribute interface{}) (interface{}, *errors.Sci
 
 	default:
 		// return false if the multivalued attribute is not a slice.
-		return nil, &errors.ScimErrorInvalidSyntax
+		err := errors.ScimError{
+			ScimType: errors.ScimErrorInvalidValue.ScimType,
+			Detail:   errors.ScimErrorInvalidValue.Detail + " Multivalued attribute was not an array. Attribute name: " + a.name,
+			Status:   errors.ScimErrorInvalidValue.Status,
+		}
+		return nil, &err
 	}
 }
 
@@ -264,7 +284,12 @@ func (a CoreAttribute) validateSingular(attribute interface{}) (interface{}, *er
 	case attributeDataTypeBinary:
 		bin, ok := attribute.(string)
 		if !ok {
-			return nil, &errors.ScimErrorInvalidValue
+			err := errors.ScimError{
+				ScimType: errors.ScimErrorInvalidValue.ScimType,
+				Detail:   errors.ScimErrorInvalidValue.Detail + " Binary attribute not the right type. Attribute name: " + a.name,
+				Status:   errors.ScimErrorInvalidValue.Status,
+			}
+			return nil, &err
 		}
 
 		match, err := regexp.MatchString(`^([A-Za-z0-9+/]{4})*([A-Za-z0-9+/]{3}=|[A-Za-z0-9+/]{2}==)?$`, bin)
@@ -273,21 +298,36 @@ func (a CoreAttribute) validateSingular(attribute interface{}) (interface{}, *er
 		}
 
 		if !match {
-			return nil, &errors.ScimErrorInvalidValue
+			err := errors.ScimError{
+				ScimType: errors.ScimErrorInvalidValue.ScimType,
+				Detail:   errors.ScimErrorInvalidValue.Detail + " Attribute contains illegal characters for type: binary. Attribute name: " + a.name,
+				Status:   errors.ScimErrorInvalidValue.Status,
+			}
+			return nil, &err
 		}
 
 		return bin, nil
 	case attributeDataTypeBoolean:
 		b, ok := attribute.(bool)
 		if !ok {
-			return nil, &errors.ScimErrorInvalidValue
+			err := errors.ScimError{
+				ScimType: errors.ScimErrorInvalidValue.ScimType,
+				Detail:   errors.ScimErrorInvalidValue.Detail + " Boolean attribute not the right type. Attribute name: " + a.name,
+				Status:   errors.ScimErrorInvalidValue.Status,
+			}
+			return nil, &err
 		}
 
 		return b, nil
 	case attributeDataTypeComplex:
 		complex, ok := attribute.(map[string]interface{})
 		if !ok {
-			return nil, &errors.ScimErrorInvalidValue
+			err := errors.ScimError{
+				ScimType: errors.ScimErrorInvalidValue.ScimType,
+				Detail:   errors.ScimErrorInvalidValue.Detail + " Complex attribute does not have the right structure. Attribute name: " + a.name,
+				Status:   errors.ScimErrorInvalidValue.Status,
+			}
+			return nil, &err
 		}
 
 		attributes := make(map[string]interface{})
@@ -299,7 +339,12 @@ func (a CoreAttribute) validateSingular(attribute interface{}) (interface{}, *er
 			for k, v := range complex {
 				if strings.EqualFold(sub.name, k) {
 					if found {
-						return nil, &errors.ScimErrorInvalidSyntax
+						err := errors.ScimError{
+							ScimType: errors.ScimErrorInvalidValue.ScimType,
+							Detail:   errors.ScimErrorInvalidValue.Detail + " Duplicate attribute found inside of the complex attribute: " + a.name + ". Duplicate attribute name: " + sub.name,
+							Status:   errors.ScimErrorInvalidValue.Status,
+						}
+						return nil, &err
 					}
 
 					found = true
@@ -318,11 +363,21 @@ func (a CoreAttribute) validateSingular(attribute interface{}) (interface{}, *er
 	case attributeDataTypeDateTime:
 		date, ok := attribute.(string)
 		if !ok {
-			return nil, &errors.ScimErrorInvalidValue
+			err := errors.ScimError{
+				ScimType: errors.ScimErrorInvalidValue.ScimType,
+				Detail:   errors.ScimErrorInvalidValue.Detail + " Date time attribute does not have the right type. Attribute name: " + a.name,
+				Status:   errors.ScimErrorInvalidValue.Status,
+			}
+			return nil, &err
 		}
 		_, err := datetime.Parse(date)
 		if err != nil {
-			return nil, &errors.ScimErrorInvalidValue
+			err := errors.ScimError{
+				ScimType: errors.ScimErrorInvalidValue.ScimType,
+				Detail:   errors.ScimErrorInvalidValue.Detail + " Date time attribute value is not in the right format - please ensure use supply date time in YYYY-MM-DDTHH:mm:ssZ format. Attribute name: " + a.name,
+				Status:   errors.ScimErrorInvalidValue.Status,
+			}
+			return nil, &err
 		}
 
 		return date, nil
@@ -331,7 +386,12 @@ func (a CoreAttribute) validateSingular(attribute interface{}) (interface{}, *er
 		case json.Number:
 			f, err := n.Float64()
 			if err != nil {
-				return nil, &errors.ScimErrorInvalidValue
+				err := errors.ScimError{
+					ScimType: errors.ScimErrorInvalidValue.ScimType,
+					Detail:   errors.ScimErrorInvalidValue.Detail + " Decimal attribute value failed to parse as a decimal. Attribute name: " + a.name,
+					Status:   errors.ScimErrorInvalidValue.Status,
+				}
+				return nil, &err
 			}
 
 			return f, nil
@@ -345,23 +405,55 @@ func (a CoreAttribute) validateSingular(attribute interface{}) (interface{}, *er
 		case json.Number:
 			i, err := n.Int64()
 			if err != nil {
-				return nil, &errors.ScimErrorInvalidValue
+				err := errors.ScimError{
+					ScimType: errors.ScimErrorInvalidValue.ScimType,
+					Detail:   errors.ScimErrorInvalidValue.Detail + " Integer attribute value failed to parse as an integer. Attribute name: " + a.name,
+					Status:   errors.ScimErrorInvalidValue.Status,
+				}
+				return nil, &err
 			}
 
 			return i, nil
 		case int, int8, int16, int32, int64:
 			return n, nil
 		default:
-			return nil, &errors.ScimErrorInvalidValue
+			err := errors.ScimError{
+				ScimType: errors.ScimErrorInvalidValue.ScimType,
+				Detail:   errors.ScimErrorInvalidValue.Detail + " Integer attribute value failed to parse as an integer. Attribute name: " + a.name,
+				Status:   errors.ScimErrorInvalidValue.Status,
+			}
+			return nil, &err
 		}
-	case attributeDataTypeString, attributeDataTypeReference:
+	case attributeDataTypeReference:
 		s, ok := attribute.(string)
 		if !ok {
-			return nil, &errors.ScimErrorInvalidValue
+			err := errors.ScimError{
+				ScimType: errors.ScimErrorInvalidValue.ScimType,
+				Detail:   errors.ScimErrorInvalidValue.Detail + " Reference attribute value is not of the right type. Attribute name: " + a.name,
+				Status:   errors.ScimErrorInvalidValue.Status,
+			}
+			return nil, &err
+		}
+
+		return s, nil
+	case attributeDataTypeString:
+		s, ok := attribute.(string)
+		if !ok {
+			err := errors.ScimError{
+				ScimType: errors.ScimErrorInvalidValue.ScimType,
+				Detail:   errors.ScimErrorInvalidValue.Detail + " String attribute value is not of the right type. Attribute name: " + a.name,
+				Status:   errors.ScimErrorInvalidValue.Status,
+			}
+			return nil, &err
 		}
 
 		return s, nil
 	default:
-		return nil, &errors.ScimErrorInvalidSyntax
+		err := errors.ScimError{
+			ScimType: errors.ScimErrorInvalidValue.ScimType,
+			Detail:   errors.ScimErrorInvalidValue.Detail + " Unrecognized attribute type. Attribute name: " + a.name,
+			Status:   errors.ScimErrorInvalidValue.Status,
+		}
+		return nil, &err
 	}
 }

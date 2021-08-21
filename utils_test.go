@@ -1,9 +1,11 @@
 package scim
 
 import (
-	"github.com/elimity-com/scim/errors"
 	"reflect"
+	"strings"
 	"testing"
+
+	"github.com/elimity-com/scim/errors"
 )
 
 func assertEqual(t *testing.T, expected, actual interface{}) {
@@ -12,9 +14,15 @@ func assertEqual(t *testing.T, expected, actual interface{}) {
 	}
 }
 
+func assertStringStartsWith(t *testing.T, expected, actual string) {
+	if !strings.HasPrefix(actual, expected) { // errors now get more context after the generic message
+		t.Errorf("not equal: expected %v, actual %v", expected, actual)
+	}
+}
+
 func assertEqualSCIMErrors(t *testing.T, expected, actual *errors.ScimError) {
 	if expected.ScimType != actual.ScimType ||
-		expected.Detail != actual.Detail ||
+		!strings.HasPrefix(actual.Detail, expected.Detail) || // errors now get more context after the generic message
 		expected.Status != actual.Status {
 		t.Errorf("wrong scim error: expected %v, actual %v", expected, actual)
 	}

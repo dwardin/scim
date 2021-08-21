@@ -140,7 +140,12 @@ func (s Schema) validate(resource interface{}, checkMutability bool) (map[string
 			if strings.EqualFold(attribute.name, k) {
 				// duplicate found
 				if found {
-					return nil, &errors.ScimErrorInvalidSyntax
+					err := errors.ScimError{
+						ScimType: errors.ScimErrorDuplicateAttributeFound.ScimType,
+						Detail:   errors.ScimErrorDuplicateAttributeFound.Detail + " Attribute name: " + attribute.name,
+						Status:   errors.ScimErrorDuplicateAttributeFound.Status,
+					}
+					return nil, &err
 				}
 				found = true
 				hit = v
@@ -150,7 +155,12 @@ func (s Schema) validate(resource interface{}, checkMutability bool) (map[string
 		// An immutable attribute SHALL NOT be updated.
 		if found && checkMutability &&
 			attribute.mutability == attributeMutabilityImmutable {
-			return nil, &errors.ScimErrorMutability
+			err := errors.ScimError{
+				ScimType: errors.ScimErrorMutability.ScimType,
+				Detail:   errors.ScimErrorMutability.Detail + " Attribute name: " + attribute.name,
+				Status:   errors.ScimErrorMutability.Status,
+			}
+			return nil, &err
 		}
 
 		attr, scimErr := attribute.validate(hit)

@@ -217,7 +217,7 @@ func TestServerResourcePatchHandlerFailOnBadType(t *testing.T) {
 
 	assertEqualStatusCode(t, http.StatusBadRequest, rr.Code)
 
-	assertEqual(t, errors.ScimErrorInvalidValue.Detail, resource["detail"])
+	assertStringStartsWith(t, errors.ScimErrorInvalidValue.Detail, resource["detail"].(string))
 }
 
 // Ensure we error when changing an immutable or readonly property while allowing adding of immutable properties.
@@ -936,7 +936,7 @@ func runPatchImmutableTest(t *testing.T, op, path string, expectedStatus int) {
 	var resource map[string]interface{}
 	assertUnmarshalNoError(t, json.Unmarshal(rr.Body.Bytes(), &resource))
 	if expectedStatus >= 400 {
-		assertEqual(t, errors.ScimErrorInvalidValue.Detail, resource["detail"])
+		assertStringStartsWith(t, errors.ScimErrorInvalidValue.Detail, resource["detail"].(string))
 	}
 }
 

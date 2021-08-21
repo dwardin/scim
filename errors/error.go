@@ -39,6 +39,11 @@ var (
 		Detail:   "The request body message structure was invalid or did not conform to the request schema.",
 		Status:   http.StatusBadRequest,
 	}
+	ScimErrorDuplicateAttributeFound = ScimError{
+		ScimType: ScimTypeInvalidSyntax,
+		Detail:   "The request body message structure was invalid or did not conform to the request schema. A duplicate attribute was found in the body.",
+		Status:   http.StatusBadRequest,
+	}
 	// ScimErrorInvalidPath returns an 400 SCIM error with a detailed message.
 	ScimErrorInvalidPath = ScimError{
 		ScimType: ScimTypeInvalidPath,
