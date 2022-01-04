@@ -291,8 +291,19 @@ func (t ResourceType) validatePatch(r *http.Request) (PatchRequest, *errors.Scim
 			} else {
 				// set the value here - this is to support any coercion of auto-correction that may have happend in the validator itself - eg. coercing text booleans, back into boolean types - allowance for Azure AD not complying with the SCIM specification in certain places
 				if op.Path.AttributePath.SubAttributeName() == "" {
-					op.Value = val[op.Path.AttributePath.AttributeName]
+					if op.Path.SubAttribute == nil || (*op.Path.SubAttribute) == "" {
+						// active: true
+						op.Value = val[op.Path.AttributePath.AttributeName]
+					} else {
+						// name.giveName: myName
+						subAttrMap, ok := val[op.Path.AttributePath.AttributeName].(map[string]interface{})
+
+						if ok && subAttrMap != nil {
+							op.Value = subAttrMap[*op.Path.SubAttribute]
+						}
+					}
 				} else {
+					// name.giveName: myName
 					subAttrMap, ok := val[op.Path.AttributePath.AttributeName].(map[string]interface{})
 
 					if ok && subAttrMap != nil {
