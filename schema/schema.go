@@ -76,7 +76,9 @@ func (s Schema) ValidateMutability(resource interface{}) (map[string]interface{}
 }
 
 // ValidatePatchOperation validates an individual operation and its related value.
-func (s Schema) ValidatePatchOperation(operation string, operationValue map[string]interface{}, isExtension bool) *errors.ScimError {
+func (s Schema) ValidatePatchOperation(operation string, operationValue map[string]interface{}, isExtension bool) (map[string]interface{}, *errors.ScimError) {
+	var value map[string]interface{} = make(map[string]interface{})
+
 	for k, v := range operationValue {
 		var attr *CoreAttribute
 		var scimErr *errors.ScimError
@@ -100,24 +102,30 @@ func (s Schema) ValidatePatchOperation(operation string, operationValue map[stri
 				Detail:   errors.ScimErrorInvalidValue.Detail + " Attribute " + attr.name + " does not exist in the schema, or is immutable in the schema, and therefore cannot be patched.",
 				Status:   errors.ScimErrorInvalidValue.Status,
 			}
-			return scimErr
+			return nil, scimErr
 		}
 
 		// "remove" operations simply have to exist
 		if operation != "remove" {
-			_, scimErr = attr.validate(v)
+			var newValue interface{}
+			newValue, scimErr = attr.validate(v)
+
+			// set the value to return
+			if scimErr == nil {
+				value[k] = newValue
+			}
 		}
 
 		if scimErr != nil {
-			return scimErr
+			return nil, scimErr
 		}
 	}
 
-	return nil
+	return value, nil
 }
 
 // ValidatePatchOperationValue validates an individual operation and its related value.
-func (s Schema) ValidatePatchOperationValue(operation string, operationValue map[string]interface{}) *errors.ScimError {
+func (s Schema) ValidatePatchOperationValue(operation string, operationValue map[string]interface{}) (map[string]interface{}, *errors.ScimError) {
 	return s.ValidatePatchOperation(operation, operationValue, false)
 }
 

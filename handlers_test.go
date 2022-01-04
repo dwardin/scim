@@ -401,6 +401,71 @@ func TestServerResourcePatchHandlerValid(t *testing.T) {
 	assertEqual(t, expectedVersion, meta["version"])
 }
 
+// Tests valid add, replace, and remove operations.
+func TestServerResourcePatchHandlerValidAzureAdStyleBoolean(t *testing.T) {
+	req := httptest.NewRequest(http.MethodPatch, "/Users/0001", strings.NewReader(`{
+		"schemas": ["urn:ietf:params:scim:api:messages:2.0:PatchOp"],
+		"Operations":[
+		  {
+		    "op":"add",
+		    "value":{
+		      "emails":[
+		        {
+			  "value":"babs@jensen.org",
+			  "type":"home"
+		        }
+		      ]
+		    }
+		  },
+		  {
+		    "op":"replace",
+		    "path":"active",
+		    "value":"true"
+		  },
+		  {
+		    "op":"replace",
+		    "path":"externalId",
+		    "value": "external_test_replace"
+		  },
+		  {
+		    "op":"remove",
+		    "path":"displayName"
+		  }
+		]
+	}`))
+	rr := httptest.NewRecorder()
+	newTestServer().ServeHTTP(rr, req)
+
+	assertEqualStatusCode(t, http.StatusOK, rr.Code)
+
+	assertEqual(t, "application/scim+json", rr.Header().Get("Content-Type"))
+
+	expectedVersion := "v1.patch"
+
+	assertEqual(t, expectedVersion, rr.Header().Get("Etag"))
+
+	var resource map[string]interface{}
+	assertUnmarshalNoError(t, json.Unmarshal(rr.Body.Bytes(), &resource))
+
+	assertEqualStatusCode(t, http.StatusOK, rr.Code)
+	assertNil(t, resource["displayName"], "displayName")
+	assertTrue(t, resource["active"].(bool))
+	assertEqual(t, "external_test_replace", resource["externalId"])
+
+	if resource["emails"] == nil || len(resource["emails"].([]interface{})) < 1 {
+		t.Errorf("handler did not add user's email address")
+	}
+
+	meta, ok := resource["meta"].(map[string]interface{})
+	assertTrue(t, ok)
+
+	assertEqual(t, "User", meta["resourceType"])
+	assertEqual(t, "2020-01-01T15:04:05+07:00", meta["created"])
+	assertNotEqual(t, "2020-02-01T16:05:04+07:00", meta["lastModified"])
+	assertEqual(t, "Users/0001", meta["location"])
+	assertEqual(t, expectedVersion, meta["version"])
+}
+
 func TestServerResourcePatchHandlerValidPathHasSubAttributes(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPatch, "/Users/0001", strings.NewReader(`{
 		"schemas": ["urn:ietf:params:scim:api:messages:2.0:PatchOp"],

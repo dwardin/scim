@@ -136,7 +136,7 @@ func (t ResourceType) validate(raw []byte, method string, r *http.Request) (Reso
 	return attributes, nil
 }
 
-func (t ResourceType) validateOperationValue(op PatchOperation, r *http.Request) *errors.ScimError {
+func (t ResourceType) validateOperationValue(op PatchOperation, r *http.Request) (map[string]interface{}, *errors.ScimError) {
 	var (
 		path             = op.Path
 		attributeName    = path.AttributePath.AttributeName
@@ -279,13 +279,26 @@ func (t ResourceType) validatePatch(r *http.Request) (PatchRequest, *errors.Scim
 			p := validator.Path()
 			op.Path = &p
 
-			if err := t.validateOperationValue(op, r); err != nil {
+			val, err := t.validateOperationValue(op, r)
+
+			if err != nil {
 				err2 := errors.ScimError{
 					ScimType: errors.ScimErrorInvalidValue.ScimType,
 					Detail:   errors.ScimErrorInvalidValue.Detail + " Operation number: " + fmt.Sprint(index+1) + ", has failed validation. " + err.Error(),
 					Status:   errors.ScimErrorInvalidValue.Status,
 				}
 				return PatchRequest{}, &err2
+			} else {
+				// set the value here - this is to support any coercion of auto-correction that may have happend in the validator itself - eg. coercing text booleans, back into boolean types - allowance for Azure AD not complying with the SCIM specification in certain places
+				if op.Path.AttributePath.SubAttributeName() == "" {
+					op.Value = val[op.Path.AttributePath.AttributeName]
+				} else {
+					subAttrMap, ok := val[op.Path.AttributePath.AttributeName].(map[string]interface{})
+
+					if ok && subAttrMap != nil {
+						op.Value = subAttrMap[op.Path.AttributePath.SubAttributeName()]
+					}
+				}
 			}
 		}
 		patchReq.Operations = append(patchReq.Operations, op)

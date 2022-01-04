@@ -28,6 +28,10 @@ type CoreAttribute struct {
 	uniqueness      attributeUniqueness
 }
 
+var (
+	validBooleanStrings = map[string]bool{"True": true, "False": false, "true": true, "false": false}
+)
+
 // ComplexCoreAttribute creates a complex attribute based on given parameters.
 func ComplexCoreAttribute(params ComplexParams) CoreAttribute {
 	checkAttributeName(params.Name)
@@ -309,6 +313,25 @@ func (a CoreAttribute) validateSingular(attribute interface{}) (interface{}, *er
 		return bin, nil
 	case attributeDataTypeBoolean:
 		b, ok := attribute.(bool)
+
+		// Azure AD sends booleans as strings in their PATCH operations - officially unrecognized bug, bug reported by a lot of people around the web - needs special handling like other places
+		if !ok {
+			s, s_ok := attribute.(string)
+
+			// if a string, check if it's one of the right values
+			if s_ok {
+				if v, found := validBooleanStrings[s]; found {
+					b = v     // set the value to the b variable which we ultimately return
+					ok = true // overwrite the ok flag to prevent failure
+					return b, nil
+				} else {
+					ok = false // failure - our attempt to parse the string gracefully failed
+				}
+			} else {
+				ok = false // failure - our attempt to parse the string gracefully failed
+			}
+		}
+
 		if !ok {
 			err := errors.ScimError{
 				ScimType: errors.ScimErrorInvalidValue.ScimType,
