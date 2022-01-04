@@ -1,9 +1,10 @@
 package filter_test
 
 import (
+	"testing"
+
 	internal "github.com/elimity-com/scim/internal/filter"
 	"github.com/elimity-com/scim/schema"
-	"testing"
 )
 
 func TestPathValidator_Validate(t *testing.T) {
@@ -87,6 +88,25 @@ func TestValidator_PassesFilter(t *testing.T) {
 					"emails": []interface{}{
 						map[string]interface{}{
 							"type": "private",
+						},
+					},
+				},
+			},
+			{
+				filter: `emails[type eq "work"].value eq "co@example.com"`,
+				valid: map[string]interface{}{
+					"emails": []interface{}{
+						map[string]interface{}{
+							"type":  "work",
+							"value": "co@example.com",
+						},
+					},
+				},
+				invalid: map[string]interface{}{
+					"emails": []interface{}{
+						map[string]interface{}{
+							"type":  "private",
+							"value": "co1@example.com",
 						},
 					},
 				},
@@ -211,6 +231,7 @@ func TestValidator_Validate(t *testing.T) {
 		`userType eq "Employee" and (emails.type eq "work")`,
 		`userType eq "Employee" and emails[type eq "work" and value co "@example.com"]`,
 		`emails[type eq "work" and value co "@example.com"] or ims[type eq "xmpp" and value co "@foo.com"]`,
+		`emails[type eq "work"].value eq "co@example.com"`,
 	} {
 		validator, err := internal.NewValidator(f, userSchema)
 		if err != nil {
