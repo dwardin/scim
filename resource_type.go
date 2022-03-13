@@ -228,14 +228,15 @@ func (t ResourceType) validatePatch(r *http.Request) (PatchRequest, *errors.Scim
 		validator, err := filter.NewPathValidator(v.Path, t.schemaWithCommon(), t.getSchemaExtensions(r)...)
 		switch v.Op = strings.ToLower(v.Op); v.Op {
 		case PatchOperationAdd, PatchOperationReplace:
-			if v.Value == nil {
-				err := errors.ScimError{
-					ScimType: errors.ScimErrorInvalidFilter.ScimType,
-					Detail:   errors.ScimErrorInvalidFilter.Detail + " Operation number: " + fmt.Sprint(index+1) + ", has a null value.",
-					Status:   errors.ScimErrorInvalidFilter.Status,
-				}
-				return PatchRequest{}, &err
-			}
+			// Removed to allow Null values through on Add and Replace operations - to accomodate an Azure AD known issue when we may need to send a different default value in case of encountering a null - eg. a whitespace, and then logically translate it to a null which normally would be a removal but in those cases it comes through as a replace or add - PATCH - additional field - add and wipe using whitespace - test passed
+			// if v.Value == nil {
+			// 	err := errors.ScimError{
+			// 		ScimType: errors.ScimErrorInvalidFilter.ScimType,
+			// 		Detail:   errors.ScimErrorInvalidFilter.Detail + " Operation number: " + fmt.Sprint(index+1) + ", has a null value.",
+			// 		Status:   errors.ScimErrorInvalidFilter.Status,
+			// 	}
+			// 	return PatchRequest{}, &err
+			// }
 			if v.Path != "" && err != nil {
 				err2 := errors.ScimError{
 					ScimType: errors.ScimErrorInvalidPath.ScimType,
