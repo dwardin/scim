@@ -105,15 +105,12 @@ func (s Schema) ValidatePatchOperation(operation string, operationValue map[stri
 			return nil, scimErr
 		}
 
-		// "remove" operations simply have to exist
-		if operation != "remove" {
-			var newValue interface{}
-			newValue, scimErr = attr.validate(v)
+		var newValue interface{}
+		newValue, scimErr = attr.validate(v)
 
-			// set the value to return
-			if scimErr == nil {
-				value[k] = newValue
-			}
+		// set the value to return
+		if scimErr == nil {
+			value[k] = newValue
 		}
 
 		if scimErr != nil {
